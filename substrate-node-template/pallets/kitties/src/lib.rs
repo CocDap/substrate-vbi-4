@@ -33,23 +33,26 @@ use frame_support::traits::Time;
 use frame_support::traits::UnixTime;
 use sp_runtime::SaturatedConversion;
 use frame_support::traits::Randomness;
-
+use serde::{Deserialize, Serialize};
 use sp_runtime::traits::Hash;
+
 #[frame_support::pallet]
 pub mod pallet {
 
 	pub use super::*;
 	#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
 	#[scale_info(skip_type_params(T))]
+	#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 	pub struct Kitty<T: Config> {
 		pub dna: T::Hash,
 		pub price: u64,
 		pub gender: Gender,
 		pub owner: T::AccountId,
-		// pub created_date : <<T as Config>::KittyTime as Time>::Moment ,
+		//pub created_date : <<T as Config>::KittyTime as Time>::Moment ,
 		pub created_date: u64,
 	}
 	#[derive(Clone, Encode, Decode, PartialEq, Copy, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+	#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 	pub enum Gender {
 		Male,
 		Female,
@@ -109,6 +112,48 @@ pub mod pallet {
 		NoKitty,
 		NotOwner,
 		TransferToSelf,
+	}
+
+
+	#[pallet::genesis_config]
+	pub struct GenesisConfig<T: Config>{
+		pub genesis_kitties : Vec<T::Hash>,
+		pub owner: Option<T::AccountId>,
+		//pub timestamp: <<T as Config>::KittyTime as Time>::Moment
+		pub timestamp: u64,
+	}
+
+	#[cfg(feature = "std")]
+	impl<T:Config> Default for GenesisConfig<T> {
+		fn default() -> GenesisConfig<T> {
+			GenesisConfig {
+				genesis_kitties: vec![],
+				owner : Default::default(),
+				timestamp: 0u64,
+			}
+		}
+	}
+
+	#[pallet::genesis_build]
+	impl<T:Config> GenesisBuild<T> for GenesisConfig<T> {
+		fn build(&self) {
+			for item in self.genesis_kitties.iter() {
+				
+				//let now = T::KittyTime::now().saturated_into();
+				let kitty = Kitty::<T>{
+					dna: *item,
+					price: 0u64,
+					gender: Gender::Female,
+					owner: self.owner.clone().unwrap(),
+					// pub created_date : <<T as Config>::KittyTime as Time>::Moment ,
+					created_date: self.timestamp,
+				};
+				Kitties::<T>::insert(item, kitty);
+				
+			
+			}
+			KittyId::<T>::put(self.genesis_kitties.len() as u32);
+		}
 	}
 
 	// Dispatchable functions allows users to interact with the pallet and invoke state changes.
